@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RepoRadar — AI-Powered Open Source Discovery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0e1a;
+      --surface: #111827;
+      --surface2: #1a2235;
+      --border: #1f2d45;
+      --accent: #6366f1;
+      --accent2: #8b5cf6;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --card-hover: #1e2d45;
+    }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* HEADER */
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 2rem 3rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .logo { font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, #6366f1, #a78bfa, #38bdf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: .4rem; }
+    .tagline { color: var(--muted); font-size: .95rem; margin-bottom: 2rem; }
+
+    /* SEARCH BAR */
+    .search-container { max-width: 700px; margin: 0 auto; display: flex; flex-direction: column; gap: .75rem; }
+    .search-row { display: flex; gap: .5rem; }
+    .search-input {
+      flex: 1; padding: .85rem 1.25rem; font-size: 1rem; font-family: inherit;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px;
+      color: var(--text); outline: none; transition: all .2s;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus { border-color: var(--accent); background: rgba(99,102,241,0.08); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+    .filter-row { display: flex; gap: .5rem; }
+    select {
+      padding: .65rem 1rem; font-family: inherit; font-size: .875rem;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text); outline: none; cursor: pointer; transition: border-color .2s;
+    }
+    select:focus { border-color: var(--accent); }
+    select option { background: var(--surface); }
+    .btn {
+      padding: .85rem 1.5rem; font-size: 1rem; font-weight: 600; font-family: inherit;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 12px; color: white; cursor: pointer; transition: all .2s;
+      white-space: nowrap;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(99,102,241,0.4); }
+    .btn:active { transform: translateY(0); }
+    .btn-sm { padding: .5rem 1rem; font-size: .8rem; border-radius: 8px; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); box-shadow: none; }
+
+    /* MAIN */
+    main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+    .stats-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap; }
+    .stat-pill { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: .4rem .9rem; font-size: .8rem; color: var(--muted); }
+    .stat-pill span { color: var(--text); font-weight: 600; }
+    .sort-info { margin-left: auto; font-size: .8rem; color: var(--muted); }
+
+    /* GRID */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem; }
+
+    /* CARD */
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 1.5rem; transition: all .25s; position: relative; overflow: hidden;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      opacity: 0; transition: opacity .25s;
+    }
+    .card:hover { border-color: var(--accent); background: var(--card-hover); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+    .card:hover::before { opacity: 1; }
+
+    .card-header { display: flex; align-items: flex-start; gap: .75rem; }
+    .repo-icon {
+      width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; color: white;
+    }
+    .card-title-area { flex: 1; min-width: 0; }
+    .card-title { font-size: .95rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-owner { font-size: .78rem; color: var(--muted); margin-top: .1rem; }
+    .final-score-badge {
+      flex-shrink: 0; padding: .35rem .7rem; border-radius: 8px; font-size: .8rem; font-weight: 700;
+      background: rgba(99,102,241,0.15); color: #a78bfa; border: 1px solid rgba(99,102,241,0.3);
+    }
+
+    .card-desc { font-size: .82rem; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    /* METRICS */
+    .metrics { display: flex; flex-direction: column; gap: .5rem; }
+    .metric { display: flex; align-items: center; gap: .6rem; }
+    .metric-label { font-size: .72rem; color: var(--muted); width: 78px; flex-shrink: 0; }
+    .metric-bar-bg { flex: 1; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .metric-bar { height: 100%; border-radius: 99px; transition: width .6s ease; }
+    .metric-val { font-size: .72rem; color: var(--muted); width: 36px; text-align: right; flex-shrink: 0; }
+    .bar-activity { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .bar-beginner { background: linear-gradient(90deg, #10b981, #34d399); }
+    .bar-doc { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .bar-popularity { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .bar-maintenance { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+    /* TAGS */
+    .card-footer { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+    .tag { padding: .25rem .6rem; border-radius: 6px; font-size: .72rem; font-weight: 500; }
+    .tag-lang { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+    .tag-topic { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .tag-stars { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+    .tag-contribs { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+    .card-link { margin-left: auto; font-size: .78rem; color: var(--accent); text-decoration: none; font-weight: 500; }
+    .card-link:hover { text-decoration: underline; }
+
+    /* LOADING / EMPTY */
+    .loader { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5rem; gap: 1rem; }
+    .spinner { width: 44px; height: 44px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state { text-align: center; padding: 4rem; color: var(--muted); }
+    .empty-state h3 { font-size: 1.1rem; color: var(--text); margin-bottom: .5rem; }
+
+    /* RESPONSIVE */
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+      .search-row { flex-direction: column; }
+      .filter-row { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔭 RepoRadar</div>
+  <p class="tagline">AI-powered open source discovery — find repositories that actually matter to you</p>
+  <div class="search-container">
+    <div class="search-row">
+      <input id="query-input" class="search-input" type="text" placeholder="Search with AI... e.g. 'beginner friendly Python web framework'" />
+      <button class="btn" onclick="search()">Search</button>
+    </div>
+    <div class="filter-row">
+      <select id="language-filter">
+        <option value="">All Languages</option>
+        <option>Python</option><option>JavaScript</option><option>TypeScript</option>
+        <option>Go</option><option>Rust</option><option>Java</option><option>C++</option>
+        <option>C</option><option>Ruby</option><option>PHP</option><option>Markdown</option>
+        <option>Shell</option>
+      </select>
+      <select id="sort-filter">
+        <option value="final_score">Sort: AI Score</option>
+        <option value="stars">Sort: Stars</option>
+        <option value="activity_score">Sort: Activity</option>
+        <option value="beginner_score">Sort: Beginner Friendly</option>
+        <option value="doc_score">Sort: Documentation</option>
+      </select>
+      <button class="btn btn-sm btn-outline" onclick="loadTop()">Top Repos</button>
+      <button class="btn btn-sm btn-outline" onclick="clearSearch()">Clear</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="stats-bar" id="stats-bar" style="display:none">
+    <div class="stat-pill">Showing <span id="count-shown">0</span> repositories</div>
+    <div class="stat-pill" id="mode-pill">Mode: <span>Top Repos</span></div>
+    <div class="sort-info" id="sort-info"></div>
+  </div>
+  <div id="results-grid" class="grid"></div>
+</main>
+
+<script>
+const API = 'http://127.0.0.1:8000/api/repos';
+
+function fmt(n) { return n >= 1000 ? (n/1000).toFixed(1)+'k' : n; }
+function pct(v) { return Math.min(100, Math.max(0, v || 0)).toFixed(1); }
+
+function getScoreColor(score) {
+  if (score >= 70) return '#10b981';
+  if (score >= 45) return '#f59e0b';
+  return '#ef4444';
+}
+
+function getInitial(name) {
+  return (name || '?')[0].toUpperCase();
+}
+
+function renderCard(repo) {
+  const topics = (repo.topics || []).slice(0, 3);
+  const score = (repo.final_score || 0).toFixed(1);
+  const scoreColor = getScoreColor(repo.final_score);
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <div class="repo-icon">${getInitial(repo.name)}</div>
+        <div class="card-title-area">
+          <div class="card-title" title="${repo.full_name}">${repo.full_name}</div>
+          <div class="card-owner">${repo.owner}</div>
+        </div>
+        <div class="final-score-badge" style="color:${scoreColor};border-color:${scoreColor}40;background:${scoreColor}18" title="AI Final Score">${score}</div>
+      </div>
+      <div class="card-desc">${repo.description || 'No description available.'}</div>
+      <div class="metrics">
+        <div class="metric">
+          <span class="metric-label">Activity</span>
+          <div class="metric-bar-bg"><div class="metric-bar bar-activity" style="width:${pct(repo.activity_score)}%"></div></div>
+          <span class="metric-val">${pct(repo.activity_score)}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Beginner</span>
+          <div class="metric-bar-bg"><div class="metric-bar bar-beginner" style="width:${pct(repo.beginner_score)}%"></div></div>
+          <span class="metric-val">${pct(repo.beginner_score)}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Docs</span>
+          <div class="metric-bar-bg"><div class="metric-bar bar-doc" style="width:${pct(repo.doc_score)}%"></div></div>
+          <span class="metric-val">${pct(repo.doc_score)}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Popularity</span>
+          <div class="metric-bar-bg"><div class="metric-bar bar-popularity" style="width:${pct(repo.popularity_score)}%"></div></div>
+          <span class="metric-val">${pct(repo.popularity_score)}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Maintenance</span>
+          <div class="metric-bar-bg"><div class="metric-bar bar-maintenance" style="width:${pct(repo.maintenance_score)}%"></div></div>
+          <span class="metric-val">${pct(repo.maintenance_score)}</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        ${repo.language ? `<span class="tag tag-lang">${repo.language}</span>` : ''}
+        <span class="tag tag-stars">⭐ ${fmt(repo.stars)}</span>
+        ${repo.contributors_count ? `<span class="tag tag-contribs">👥 ${fmt(repo.contributors_count)}</span>` : ''}
+        ${topics.map(t => `<span class="tag tag-topic">${t}</span>`).join('')}
+        <a class="card-link" href="${repo.repo_url}" target="_blank">View →</a>
+      </div>
+    </div>`;
+}
+
+function showLoader() {
+  document.getElementById('results-grid').innerHTML = `
+    <div class="loader" style="grid-column:1/-1">
+      <div class="spinner"></div>
+      <span style="color:var(--muted);font-size:.9rem">Searching with AI...</span>
+    </div>`;
+  document.getElementById('stats-bar').style.display = 'none';
+}
+
+function renderResults(repos, mode, sortKey) {
+  const grid = document.getElementById('results-grid');
+  const statsBar = document.getElementById('stats-bar');
+
+  if (!repos || repos.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h3>No repositories found</h3><p>Try a different search or clear the filters.</p></div>`;
+    statsBar.style.display = 'none';
+    return;
+  }
+
+  // Client-side sort if not semantic search
+  if (sortKey && sortKey !== 'final_score') {
+    repos.sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
+  }
+
+  grid.innerHTML = repos.map(renderCard).join('');
+  document.getElementById('count-shown').textContent = repos.length;
+  document.getElementById('mode-pill').innerHTML = `Mode: <span>${mode}</span>`;
+  statsBar.style.display = 'flex';
+}
+
+async function loadTop() {
+  showLoader();
+  document.getElementById('query-input').value = '';
+  try {
+    const res = await fetch(`${API}/top/`);
+    const data = await res.json();
+    renderResults(data, 'Top by AI Score', 'final_score');
+  } catch(e) {
+    document.getElementById('results-grid').innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h3>Could not connect to API</h3><p>Make sure Django server is running on port 8000.</p></div>`;
+  }
+}
+
+async function search() {
+  const query = document.getElementById('query-input').value.trim();
+  const language = document.getElementById('language-filter').value;
+  const sortKey = document.getElementById('sort-filter').value;
+
+  showLoader();
+
+  let url = `${API}/recommendations/?`;
+  if (query) url += `query=${encodeURIComponent(query)}&`;
+  if (language) url += `language=${encodeURIComponent(language)}&`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const mode = query ? `AI: "${query}"` : (language ? `Language: ${language}` : 'All Repos');
+    renderResults(data, mode, query ? null : sortKey);
+  } catch(e) {
+    document.getElementById('results-grid').innerHTML = `<div class="empty-state" style="grid-column:1/-1"><h3>Search failed</h3><p>API unreachable. Ensure Django server is running.</p></div>`;
+  }
+}
+
+function clearSearch() {
+  document.getElementById('query-input').value = '';
+  document.getElementById('language-filter').value = '';
+  document.getElementById('sort-filter').value = 'final_score';
+  loadTop();
+}
+
+// Allow Enter key to search
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('query-input').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+  loadTop();
+});
+</script>
+</body>
+</html>
