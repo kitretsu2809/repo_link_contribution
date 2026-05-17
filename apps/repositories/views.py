@@ -1,12 +1,19 @@
 import numpy as np
-from rest_framework import viewsets
+from django.contrib.auth import authenticate, get_user_model, login, logout
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Repository
+from rest_framework.views import APIView
+
+from .models import Repository, RepositoryWatch
 from .serializers import RepositorySerializer
+
+
+User = get_user_model()
 
 # Lazy singleton — avoids loading PyTorch/CUDA at import time
 _embedding_model = None
+
 
 def get_embedding_model():
     global _embedding_model
@@ -19,6 +26,7 @@ def get_embedding_model():
             _embedding_model = False
     return _embedding_model if _embedding_model else None
 
+
 def cosine_similarity(v1, v2):
     dot_product = np.dot(v1, v2)
     norm_v1 = np.linalg.norm(v1)
@@ -26,6 +34,81 @@ def cosine_similarity(v1, v2):
     if norm_v1 == 0 or norm_v2 == 0:
         return 0.0
     return dot_product / (norm_v1 * norm_v2)
+
+
+def serialize_user(user):
+    return {
+        'id': user.id,
+        'email': user.email,
+        'username': user.get_username(),
+    }
+
+
+class AuthStatusView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'authenticated': False, 'user': None})
+        return Response({'authenticated': True, 'user': serialize_user(request.user)})
+
+
+class RegisterView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = (request.data.get('email') or '').strip().lower()
+        password = request.data.get('password') or ''
+
+        if not email or not password:
+            return Response(
+                {'detail': 'Email and password are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if User.objects.filter(email__iexact=email).exists():
+            return Response(
+                {'detail': 'An account with that email already exists.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.create_user(username=email, email=email, password=password)
+        login(request, user)
+        return Response({'authenticated': True, 'user': serialize_user(user)}, status=status.HTTP_201_CREATED)
+
+
+class LoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = (request.data.get('email') or '').strip().lower()
+        password = request.data.get('password') or ''
+
+        if not email or not password:
+            return Response(
+                {'detail': 'Email and password are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            return Response({'detail': 'Invalid email or password.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        authenticated_user = authenticate(request, username=user.username, password=password)
+        if not authenticated_user:
+            return Response({'detail': 'Invalid email or password.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        login(request, authenticated_user)
+        return Response({'authenticated': True, 'user': serialize_user(authenticated_user)})
+
+
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        logout(request)
+        return Response({'authenticated': False, 'user': None})
+
 
 class RepositoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Repository.objects.all()
@@ -43,6 +126,7 @@ class RepositoryViewSet(viewsets.ReadOnlyModelViewSet):
         """GET /api/repos/{id}/recent_issues/ — open issues from the last 5 days."""
         from datetime import datetime, timezone, timedelta
         from .serializers import IssueSerializer
+
         repo = self.get_object()
         cutoff = datetime.now(timezone.utc) - timedelta(days=5)
         issues = repo.issues.filter(
@@ -87,3 +171,24 @@ class RepositoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = self.get_serializer(repos, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def star(self, request, pk=None):
+        repo = self.get_object()
+        watch, created = RepositoryWatch.objects.get_or_create(user=request.user, repository=repo)
+        return Response({
+            'starred': True,
+            'created': created,
+            'repository_id': repo.id,
+            'watch_id': watch.id,
+        })
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def unstar(self, request, pk=None):
+        repo = self.get_object()
+        deleted, _ = RepositoryWatch.objects.filter(user=request.user, repository=repo).delete()
+        return Response({
+            'starred': False,
+            'deleted': bool(deleted),
+            'repository_id': repo.id,
+        })

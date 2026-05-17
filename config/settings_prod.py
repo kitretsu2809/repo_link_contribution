@@ -3,10 +3,35 @@ Production settings — overrides config.settings for deployed environments.
 """
 from .settings import *
 import os
+from urllib.parse import urlparse
 
 DEBUG = False
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost').split(',')]
+ALLOWED_HOSTS = [
+    h.strip() for h in os.getenv(
+        'ALLOWED_HOSTS',
+        'localhost,127.0.0.1,.vercel.app'
+    ).split(',')
+    if h.strip()
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
+
+APP_BASE_URL = os.getenv('APP_BASE_URL', '').strip()
+if APP_BASE_URL:
+    parsed = urlparse(APP_BASE_URL)
+    host = parsed.hostname
+    if host and host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
+    if parsed.scheme and host:
+        origin = f'{parsed.scheme}://{host}'
+        if parsed.port:
+            origin = f'{origin}:{parsed.port}'
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
 
 # -----------------------------------------------------------------------
 # Database — PostgreSQL
@@ -25,6 +50,7 @@ DATABASES = {
 # Static files
 # -----------------------------------------------------------------------
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = '/static/'
 
 # -----------------------------------------------------------------------
 # Security
@@ -32,6 +58,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 # -----------------------------------------------------------------------
 # Logging — container-friendly (stdout)

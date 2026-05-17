@@ -17,16 +17,24 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import render
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.http import JsonResponse
 
+@ensure_csrf_cookie
 def frontend(request):
     return render(request, 'index.html')
 
+@ensure_csrf_cookie
 def repository_detail(request, repo_id):
     return render(request, 'repo_detail.html', {'repo_id': repo_id})
+
+def healthcheck(request):
+    return JsonResponse({'ok': True})
 
 urlpatterns = [
     path('', frontend, name='frontend'),
     path('repos/<int:repo_id>/', repository_detail, name='repository-detail'),
+    path('healthz/', healthcheck, name='healthcheck'),
     path('admin/', admin.site.urls),
     path('api/', include('apps.repositories.urls')),
 ]

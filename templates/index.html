@@ -74,6 +74,109 @@
     .btn-sm { padding: .5rem 1rem; font-size: .8rem; border-radius: 8px; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--muted); }
     .btn-outline:hover { border-color: var(--accent); color: var(--accent); box-shadow: none; }
+    .auth-panel {
+      margin: 1rem auto 0;
+      max-width: 900px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      justify-content: center;
+      padding: .85rem;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+    .auth-panel.logged-in {
+      justify-content: space-between;
+      padding-inline: 1rem;
+    }
+    .auth-guest {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+    .auth-user {
+      display: none;
+      width: 100%;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+    }
+    .auth-panel.logged-in .auth-guest { display: none; }
+    .auth-panel.logged-in .auth-user { display: flex; }
+    .auth-input {
+      min-width: 180px;
+      padding: .7rem .95rem;
+      font-size: .9rem;
+      font-family: inherit;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      outline: none;
+    }
+    .auth-input:focus { border-color: var(--accent); }
+    .auth-status {
+      color: var(--muted);
+      font-size: .85rem;
+      margin-right: .25rem;
+    }
+    .auth-status strong { color: var(--text); }
+    .profile-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .65rem;
+      padding: .55rem .8rem;
+      border-radius: 999px;
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.28);
+      color: var(--text);
+      font-size: .85rem;
+      max-width: 100%;
+    }
+    .profile-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      font-size: .9rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .profile-copy {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 0;
+    }
+    .profile-email {
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 240px;
+    }
+    .profile-note {
+      color: var(--muted);
+      font-size: .75rem;
+    }
+    .auth-message {
+      width: 100%;
+      text-align: center;
+      font-size: .82rem;
+      color: #cbd5e1;
+      min-height: 1rem;
+    }
+    .auth-message.error { color: #fca5a5; }
+    .auth-message.success { color: #86efac; }
 
     /* MAIN */
     main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
@@ -113,6 +216,14 @@
       flex-shrink: 0; padding: .35rem .7rem; border-radius: 8px; font-size: .8rem; font-weight: 700;
       background: rgba(99,102,241,0.15); color: #a78bfa; border: 1px solid rgba(99,102,241,0.3);
     }
+    .repo-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
+    .star-btn {
+      width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface2); color: #94a3b8; cursor: pointer; font-size: 1rem;
+      transition: all .2s;
+    }
+    .star-btn:hover { border-color: #fbbf24; color: #fbbf24; }
+    .star-btn.active { color: #fbbf24; border-color: rgba(251,191,36,0.45); background: rgba(245,158,11,0.12); }
 
     .card-desc { font-size: .82rem; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -151,6 +262,11 @@
       .grid { grid-template-columns: 1fr; }
       .search-row { flex-direction: column; }
       .filter-row { flex-wrap: wrap; }
+      .auth-panel { justify-content: stretch; }
+      .auth-input, .auth-panel .btn { width: 100%; }
+      .auth-status, .auth-message { text-align: left; }
+      .auth-user { flex-direction: column; align-items: stretch; }
+      .profile-email { max-width: none; }
     }
 
     /* ISSUES LINK */
@@ -199,6 +315,26 @@
       <button class="btn btn-sm btn-outline" onclick="clearSearch()">Clear</button>
     </div>
   </div>
+  <div class="auth-panel">
+    <div class="auth-guest" id="auth-guest">
+      <div class="auth-status" id="auth-status">Signed in as <strong>guest</strong>. Login to star repositories and receive issue emails.</div>
+      <input id="auth-email" class="auth-input" type="email" placeholder="Email address" />
+      <input id="auth-password" class="auth-input" type="password" placeholder="Password" />
+      <button class="btn btn-sm" onclick="loginUser()">Login</button>
+      <button class="btn btn-sm btn-outline" onclick="registerUser()">Register</button>
+    </div>
+    <div class="auth-user" id="auth-user">
+      <div class="profile-chip">
+        <span class="profile-icon">◉</span>
+        <div class="profile-copy">
+          <span class="profile-email" id="profile-email">guest</span>
+          <span class="profile-note">Email notifications are active for starred repositories</span>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-outline" id="logout-btn" onclick="logoutUser()" style="display:none">Logout</button>
+    </div>
+    <div class="auth-message" id="auth-message"></div>
+  </div>
 </header>
 
 <main>
@@ -215,6 +351,7 @@ const API = '/api/repos';
 let currentRepos = [];
 let currentMode = 'Top by AI Score';
 let currentSortKey = 'final_score';
+let currentUser = null;
 
 function fmt(n) { return n >= 1000 ? (n/1000).toFixed(1)+'k' : n; }
 function pct(v) { return Math.min(100, Math.max(0, v || 0)).toFixed(1); }
@@ -237,12 +374,148 @@ function getInitial(name) {
   return (name || '?')[0].toUpperCase();
 }
 
+function getCsrfToken() {
+  const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+  return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+}
+
+function setAuthMessage(message, type='') {
+  const el = document.getElementById('auth-message');
+  el.textContent = message || '';
+  el.className = `auth-message ${type}`.trim();
+}
+
+function updateAuthUI() {
+  const panel = document.querySelector('.auth-panel');
+  const status = document.getElementById('auth-status');
+  const profileEmail = document.getElementById('profile-email');
+  const emailInput = document.getElementById('auth-email');
+  const passwordInput = document.getElementById('auth-password');
+  const logoutBtn = document.getElementById('logout-btn');
+  if (currentUser) {
+    panel.classList.add('logged-in');
+    profileEmail.textContent = currentUser.email;
+    logoutBtn.style.display = 'inline-flex';
+  } else {
+    panel.classList.remove('logged-in');
+    status.innerHTML = 'Signed in as <strong>guest</strong>. Login to star repositories and receive issue emails.';
+    profileEmail.textContent = 'guest';
+    emailInput.value = '';
+    passwordInput.value = '';
+    logoutBtn.style.display = 'none';
+  }
+}
+
+async function postJson(url, payload) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken(),
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify(payload || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.detail || 'Request failed');
+  }
+  return data;
+}
+
+async function refreshAuthStatus() {
+  try {
+    const res = await fetch('/api/auth/me/', { credentials: 'same-origin' });
+    const data = await res.json();
+    currentUser = data.authenticated ? data.user : null;
+  } catch (e) {
+    currentUser = null;
+  }
+  updateAuthUI();
+}
+
+function rerenderCurrentResults() {
+  if (currentRepos.length) {
+    renderResults(currentRepos, currentMode, currentSortKey);
+  }
+}
+
+async function refreshCurrentResults() {
+  if (document.getElementById('query-input').value.trim() || document.getElementById('language-filter').value) {
+    await search();
+    return;
+  }
+  await loadTop();
+}
+
+async function loginUser() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  try {
+    const data = await postJson('/api/auth/login/', { email, password });
+    currentUser = data.user;
+    updateAuthUI();
+    setAuthMessage('Login successful.', 'success');
+    await refreshCurrentResults();
+  } catch (e) {
+    setAuthMessage(e.message, 'error');
+  }
+}
+
+async function registerUser() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  try {
+    const data = await postJson('/api/auth/register/', { email, password });
+    currentUser = data.user;
+    updateAuthUI();
+    setAuthMessage('Account created. Notifications are now enabled for starred repositories.', 'success');
+    await refreshCurrentResults();
+  } catch (e) {
+    setAuthMessage(e.message, 'error');
+  }
+}
+
+async function logoutUser() {
+  try {
+    await postJson('/api/auth/logout/', {});
+    currentUser = null;
+    currentRepos = currentRepos.map(repo => ({ ...repo, is_starred: false }));
+    updateAuthUI();
+    setAuthMessage('Logged out.', 'success');
+    await refreshCurrentResults();
+  } catch (e) {
+    setAuthMessage(e.message, 'error');
+  }
+}
+
+async function toggleStar(repoId, currentlyStarred) {
+  if (!currentUser) {
+    setAuthMessage('Login or register first to star repositories.', 'error');
+    return;
+  }
+
+  try {
+    const endpoint = currentlyStarred ? 'unstar' : 'star';
+    await postJson(`${API}/${repoId}/${endpoint}/`, {});
+    const repo = currentRepos.find(item => item.id === repoId);
+    if (repo) repo.is_starred = !currentlyStarred;
+    setAuthMessage(currentlyStarred ? 'Repository removed from notifications.' : 'Repository added to notifications.', 'success');
+    rerenderCurrentResults();
+  } catch (e) {
+    setAuthMessage(e.message, 'error');
+  }
+}
+
 function renderCard(repo) {
   const topics = (repo.topics || []).slice(0, 3);
   const score = (repo.final_score || 0).toFixed(1);
   const scoreColor = getScoreColor(repo.final_score);
   const issueCount = repo.recent_issues_count || 0;
   const badgeCls = issueCount === 0 ? 'zero' : '';
+  const starred = !!repo.is_starred;
+  const starClass = starred ? 'active' : '';
+  const starTitle = starred ? 'Stop issue notifications for this repository' : 'Get issue notifications for this repository';
 
   return `
     <div class="card">
@@ -252,7 +525,10 @@ function renderCard(repo) {
           <div class="card-title" title="${escapeHtml(repo.full_name)}">${escapeHtml(repo.full_name)}</div>
           <div class="card-owner">${escapeHtml(repo.owner)}</div>
         </div>
-        <div class="final-score-badge" style="color:${scoreColor};border-color:${scoreColor}40;background:${scoreColor}18" title="AI Final Score">${score}</div>
+        <div class="repo-actions">
+          <button class="star-btn ${starClass}" type="button" title="${starTitle}" onclick="event.stopPropagation(); toggleStar(${repo.id}, ${starred})">★</button>
+          <div class="final-score-badge" style="color:${scoreColor};border-color:${scoreColor}40;background:${scoreColor}18" title="AI Final Score">${score}</div>
+        </div>
       </div>
       <div class="card-desc">${escapeHtml(repo.description || 'No description available.')}</div>
       <div class="metrics">
@@ -388,6 +664,7 @@ function clearSearch() {
 // Allow Enter key to search
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('query-input').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+  document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') loginUser(); });
   document.getElementById('sort-filter').addEventListener('change', () => {
     if (currentRepos.length) {
       renderResults(currentRepos, currentMode, document.getElementById('sort-filter').value);
@@ -398,6 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
       search();
     }
   });
+  refreshAuthStatus();
   loadTop();
 });
 </script>

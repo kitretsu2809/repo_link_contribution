@@ -24,6 +24,7 @@ class IssueSerializer(serializers.ModelSerializer):
 class RepositorySerializer(serializers.ModelSerializer):
     recent_issues = serializers.SerializerMethodField()
     recent_issues_count = serializers.SerializerMethodField()
+    is_starred = serializers.SerializerMethodField()
 
     class Meta:
         model = Repository
@@ -40,3 +41,9 @@ class RepositorySerializer(serializers.ModelSerializer):
         from datetime import datetime, timezone, timedelta
         cutoff = datetime.now(timezone.utc) - timedelta(days=5)
         return obj.issues.filter(created_at__gte=cutoff).count()
+
+    def get_is_starred(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.watches.filter(user=request.user).exists()

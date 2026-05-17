@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 class Repository(models.Model):
@@ -50,3 +51,43 @@ class Issue(models.Model):
 
     def __str__(self):
         return f"{self.repository.name} - {self.title}"
+
+
+class RepositoryWatch(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='repository_watches',
+    )
+    repository = models.ForeignKey(
+        Repository,
+        on_delete=models.CASCADE,
+        related_name='watches',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'repository')
+
+    def __str__(self):
+        return f"{self.user} watches {self.repository.full_name}"
+
+
+class IssueNotification(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='issue_notifications',
+    )
+    issue = models.ForeignKey(
+        Issue,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'issue')
+
+    def __str__(self):
+        return f"Notification sent to {self.user} for issue {self.issue_id}"

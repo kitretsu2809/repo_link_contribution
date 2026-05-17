@@ -7,6 +7,7 @@ from datetime import datetime
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import make_aware
 from apps.repositories.models import Repository, Issue
+from apps.repositories.notifications import send_issue_notifications
 from apps.analytics.services import AnalyticsService
 
 # 10 categories, 50 repos each = 500 total
@@ -145,12 +146,12 @@ class GitHubCrawlerService:
             # Generate AI summary
             ai_summary = summarize_issue(title, body)
 
-            Issue.objects.update_or_create(
+            issue, created = Issue.objects.update_or_create(
                 repository=repo,
                 github_issue_number=issue_data["number"],
                 defaults={
                     "title": title,
-                    "body": body[:5000],  # cap body storage
+                    "body": body,
                     "issue_url": issue_data["html_url"],
                     "state": issue_data.get("state", "open"),
                     "labels": labels,
@@ -159,6 +160,8 @@ class GitHubCrawlerService:
                     "ai_summary": ai_summary,
                 }
             )
+            if created:
+                send_issue_notifications(issue)
 
     def _fetch_contributors_count(self, repo):
         url = f"{self.BASE_URL}/repos/{repo.full_name}/contributors"

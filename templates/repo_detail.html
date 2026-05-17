@@ -38,6 +38,115 @@
       padding: 2rem;
     }
 
+    .auth-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding: .9rem 1rem;
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+    .auth-panel.logged-in {
+      justify-content: space-between;
+    }
+    .auth-guest {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      width: 100%;
+    }
+    .auth-user {
+      display: none;
+      width: 100%;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+    }
+    .auth-panel.logged-in .auth-guest { display: none; }
+    .auth-panel.logged-in .auth-user { display: flex; }
+
+    .auth-input {
+      min-width: 180px;
+      padding: .72rem .95rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-family: inherit;
+    }
+
+    .auth-status {
+      color: var(--muted);
+      font-size: .86rem;
+    }
+    .profile-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .65rem;
+      padding: .55rem .8rem;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.28);
+      color: var(--text);
+    }
+    .profile-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      font-size: .9rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .profile-copy {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .profile-email {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 240px;
+    }
+    .profile-note {
+      font-size: .75rem;
+      color: var(--muted);
+    }
+
+    .auth-message {
+      width: 100%;
+      font-size: .82rem;
+      color: #cbd5e1;
+      min-height: 1rem;
+    }
+
+    .btn {
+      padding: .72rem 1rem;
+      font-size: .88rem;
+      font-weight: 600;
+      font-family: inherit;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 10px;
+      color: white;
+      cursor: pointer;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+    }
+
     .back-link {
       display: inline-flex;
       align-items: center;
@@ -102,6 +211,28 @@
     .score-badge span {
       color: var(--muted);
       font-size: .78rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-top: .75rem;
+    }
+
+    .star-btn {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: #94a3b8;
+      padding: .72rem 1rem;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .star-btn.active {
+      color: #fbbf24;
+      border-color: rgba(251, 191, 36, 0.45);
+      background: rgba(245, 158, 11, 0.12);
     }
 
     .repo-description {
@@ -242,12 +373,35 @@
       .page { padding: 1rem; }
       .hero-top, .section-head { flex-direction: column; align-items: flex-start; }
       .score-badge { text-align: left; }
+      .auth-user { flex-direction: column; align-items: stretch; }
+      .profile-email { max-width: none; }
     }
   </style>
 </head>
 <body>
   <main class="page">
     <a class="back-link" href="/">← Back to search</a>
+
+    <section class="auth-panel">
+      <div class="auth-guest">
+        <div class="auth-status" id="auth-status">Signed in as guest. Login to star this repository and receive issue emails.</div>
+        <input id="auth-email" class="auth-input" type="email" placeholder="Email address" />
+        <input id="auth-password" class="auth-input" type="password" placeholder="Password" />
+        <button class="btn" type="button" onclick="loginUser()">Login</button>
+        <button class="btn btn-outline" type="button" onclick="registerUser()">Register</button>
+      </div>
+      <div class="auth-user">
+        <div class="profile-chip">
+          <span class="profile-icon">◉</span>
+          <div class="profile-copy">
+            <span class="profile-email" id="profile-email">guest</span>
+            <span class="profile-note">Email notifications are active for starred repositories</span>
+          </div>
+        </div>
+        <button class="btn btn-outline" id="logout-btn" type="button" onclick="logoutUser()" style="display:none">Logout</button>
+      </div>
+      <div class="auth-message" id="auth-message"></div>
+    </section>
 
     <section class="hero" id="repo-hero">
       <div class="loader">
@@ -276,6 +430,8 @@
     const repoId = {{ repo_id }};
     const repoApi = `/api/repos/${repoId}/`;
     const issuesApi = `/api/repos/${repoId}/recent_issues/`;
+    let currentUser = null;
+    let currentRepo = null;
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -290,6 +446,127 @@
       return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n ?? 0);
     }
 
+    function getCsrfToken() {
+      const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+      return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+    }
+
+    function setAuthMessage(message, type='') {
+      const el = document.getElementById('auth-message');
+      el.textContent = message || '';
+      el.style.color = type === 'error' ? '#fca5a5' : type === 'success' ? '#86efac' : '#cbd5e1';
+    }
+
+    function updateAuthUI() {
+      const panel = document.querySelector('.auth-panel');
+      const status = document.getElementById('auth-status');
+      const profileEmail = document.getElementById('profile-email');
+      const emailInput = document.getElementById('auth-email');
+      const passwordInput = document.getElementById('auth-password');
+      const logoutBtn = document.getElementById('logout-btn');
+      if (currentUser) {
+        panel.classList.add('logged-in');
+        profileEmail.textContent = currentUser.email;
+        logoutBtn.style.display = 'inline-flex';
+      } else {
+        panel.classList.remove('logged-in');
+        status.textContent = 'Signed in as guest. Login to star this repository and receive issue emails.';
+        profileEmail.textContent = 'guest';
+        emailInput.value = '';
+        passwordInput.value = '';
+        logoutBtn.style.display = 'none';
+      }
+    }
+
+    async function postJson(url, payload) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload || {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Request failed');
+      return data;
+    }
+
+    async function refreshAuthStatus() {
+      try {
+        const res = await fetch('/api/auth/me/', { credentials: 'same-origin' });
+        const data = await res.json();
+        currentUser = data.authenticated ? data.user : null;
+      } catch (error) {
+        currentUser = null;
+      }
+      updateAuthUI();
+    }
+
+    async function loginUser() {
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      try {
+        const data = await postJson('/api/auth/login/', { email, password });
+        currentUser = data.user;
+        updateAuthUI();
+        setAuthMessage('Login successful.', 'success');
+        await loadRepoOnly();
+      } catch (error) {
+        setAuthMessage(error.message, 'error');
+      }
+    }
+
+    async function registerUser() {
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      try {
+        const data = await postJson('/api/auth/register/', { email, password });
+        currentUser = data.user;
+        updateAuthUI();
+        setAuthMessage('Account created.', 'success');
+        await loadRepoOnly();
+      } catch (error) {
+        setAuthMessage(error.message, 'error');
+      }
+    }
+
+    async function logoutUser() {
+      try {
+        await postJson('/api/auth/logout/', {});
+        currentUser = null;
+        if (currentRepo) {
+          currentRepo.is_starred = false;
+        }
+        updateAuthUI();
+        setAuthMessage('Logged out.', 'success');
+        await loadRepoOnly();
+      } catch (error) {
+        setAuthMessage(error.message, 'error');
+      }
+    }
+
+    async function toggleStar() {
+      if (!currentUser) {
+        setAuthMessage('Login or register first to star this repository.', 'error');
+        return;
+      }
+      if (!currentRepo) {
+        return;
+      }
+
+      try {
+        const endpoint = currentRepo.is_starred ? 'unstar' : 'star';
+        await postJson(`${repoApi}${endpoint}/`, {});
+        currentRepo.is_starred = !currentRepo.is_starred;
+        setAuthMessage(currentRepo.is_starred ? 'Repository added to notifications.' : 'Repository removed from notifications.', 'success');
+        document.getElementById('repo-hero').innerHTML = renderRepo(currentRepo);
+      } catch (error) {
+        setAuthMessage(error.message, 'error');
+      }
+    }
+
     function issueAge(daysAgo) {
       if (daysAgo === 0) return 'opened today';
       if (daysAgo === 1) return 'opened 1 day ago';
@@ -298,6 +575,8 @@
 
     function renderRepo(repo) {
       const topics = (repo.topics || []).slice(0, 8);
+      const starLabel = repo.is_starred ? '★ Watching for issue emails' : '☆ Star for issue emails';
+      const starClass = repo.is_starred ? 'active' : '';
       return `
         <div class="hero-top">
           <div>
@@ -311,6 +590,9 @@
           </div>
         </div>
         <p class="repo-description">${escapeHtml(repo.description || 'No description available for this repository.')}</p>
+        <div class="hero-actions">
+          <button class="star-btn ${starClass}" type="button" onclick="toggleStar()">${starLabel}</button>
+        </div>
         <div class="meta-row">
           ${repo.language ? `<span class="pill">Language: ${escapeHtml(repo.language)}</span>` : ''}
           <span class="pill">Stars: ${fmt(repo.stars)}</span>
@@ -351,26 +633,41 @@
       }).join('')}</div>`;
     }
 
-    async function loadPage() {
+    async function loadRepoOnly() {
       const hero = document.getElementById('repo-hero');
-      const issuesRoot = document.getElementById('issues-root');
-
       try {
-        const [repoRes, issuesRes] = await Promise.all([fetch(repoApi), fetch(issuesApi)]);
-        if (!repoRes.ok || !issuesRes.ok) {
-          throw new Error(`HTTP ${repoRes.status}/${issuesRes.status}`);
-        }
-
-        const [repo, issues] = await Promise.all([repoRes.json(), issuesRes.json()]);
-        hero.innerHTML = renderRepo(repo);
-        issuesRoot.innerHTML = renderIssues(issues);
+        const repoRes = await fetch(repoApi, { credentials: 'same-origin' });
+        if (!repoRes.ok) throw new Error(`HTTP ${repoRes.status}`);
+        currentRepo = await repoRes.json();
+        hero.innerHTML = renderRepo(currentRepo);
       } catch (error) {
         hero.innerHTML = `<div class="empty">Could not load repository details.</div>`;
+      }
+    }
+
+    async function loadIssuesOnly() {
+      const issuesRoot = document.getElementById('issues-root');
+      try {
+        const issuesRes = await fetch(issuesApi, { credentials: 'same-origin' });
+        if (!issuesRes.ok) throw new Error(`HTTP ${issuesRes.status}`);
+        const issues = await issuesRes.json();
+        issuesRoot.innerHTML = renderIssues(issues);
+      } catch (error) {
         issuesRoot.innerHTML = `<div class="empty">Could not load issue data for this repository.</div>`;
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadPage);
+    async function loadPage() {
+      await refreshAuthStatus();
+      await Promise.all([loadRepoOnly(), loadIssuesOnly()]);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('auth-password').addEventListener('keydown', e => {
+        if (e.key === 'Enter') loginUser();
+      });
+      loadPage();
+    });
   </script>
 </body>
 </html>
