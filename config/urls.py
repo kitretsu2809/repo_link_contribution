@@ -21,8 +21,12 @@ from django.shortcuts import render
 def frontend(request):
     return render(request, 'index.html')
 
+def repository_detail(request, repo_id):
+    return render(request, 'repo_detail.html', {'repo_id': repo_id})
+
 urlpatterns = [
     path('', frontend, name='frontend'),
+    path('repos/<int:repo_id>/', repository_detail, name='repository-detail'),
     path('admin/', admin.site.urls),
     path('api/', include('apps.repositories.urls')),
 ]

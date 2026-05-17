@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'django_celery_beat',
     'apps.repositories',
     'apps.crawler',
 ]
@@ -86,6 +87,12 @@ DATABASES = {
     }
 }
 
+# Override with PostgreSQL if DATABASE_URL is set in environment
+_db_url = os.getenv('DATABASE_URL')
+if _db_url:
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.config(default=_db_url, conn_max_age=600)
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -124,12 +131,21 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Celery Configuration Options
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 # Use 'solo' pool to prevent CUDA fork errors when using PyTorch in tasks.
-# Tasks run sequentially in the main process - ideal for our crawl workload.
 CELERY_WORKER_POOL = 'solo'
+
+# Celery Beat — automatically crawl all categories every 24 hours
+from celery.schedules import crontab  # noqa: E402
+CELERY_BEAT_SCHEDULE = {
+    'crawl-all-categories-daily': {
+        'task': 'crawler.run_all_categories',
+        'schedule': crontab(hour=2, minute=0),  # 2:00 AM UTC every day
+        'kwargs': {'per_category': 50},
+    },
+}

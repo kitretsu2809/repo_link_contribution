@@ -38,6 +38,23 @@ class RepositoryViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = self.get_serializer(top_repos, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'])
+    def recent_issues(self, request, pk=None):
+        """GET /api/repos/{id}/recent_issues/ — open issues from the last 5 days."""
+        from datetime import datetime, timezone, timedelta
+        from .serializers import IssueSerializer
+        repo = self.get_object()
+        cutoff = datetime.now(timezone.utc) - timedelta(days=5)
+        issues = repo.issues.filter(
+            created_at__gte=cutoff, state='open'
+        ).order_by('-created_at')
+        serializer = IssueSerializer(issues, many=True)
+        return Response({
+            'repository': repo.full_name,
+            'count': issues.count(),
+            'issues': serializer.data,
+        })
+
     @action(detail=False, methods=['get'])
     def recommendations(self, request):
         query = request.query_params.get('query', '')

@@ -109,21 +109,56 @@ class GitHubCrawlerService:
                 pass
 
     def _fetch_issues(self, repo):
+        from datetime import datetime, timezone, timedelta
+        from django.utils.dateparse import parse_datetime
+        from apps.analytics.summarizer import summarize_issue
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=5)
+
         url = f"{self.BASE_URL}/repos/{repo.full_name}/issues"
-        params = {"labels": "good first issue", "state": "open", "per_page": 5}
+        params = {
+            "state": "open",
+            "sort": "created",
+            "direction": "desc",
+            "per_page": 30,
+        }
         response = requests.get(url, headers=self.headers, params=params)
-        if response.status_code == 200:
-            for issue_data in response.json():
-                if "pull_request" not in issue_data:
-                    Issue.objects.update_or_create(
-                        repository=repo,
-                        issue_url=issue_data["html_url"],
-                        defaults={
-                            "title": issue_data["title"],
-                            "body": issue_data.get("body", "") or "",
-                            "is_good_first_issue": True
-                        }
-                    )
+        if response.status_code != 200:
+            return
+
+        for issue_data in response.json():
+            # Skip pull requests
+            if "pull_request" in issue_data:
+                continue
+
+            # Only keep issues created within the last 5 days
+            created_str = issue_data.get("created_at")
+            created_at = parse_datetime(created_str) if created_str else None
+            if created_at and created_at < cutoff:
+                break  # Results are sorted newest-first, so we can stop here
+
+            labels = [lbl["name"] for lbl in issue_data.get("labels", [])]
+            is_gfi = "good first issue" in [l.lower() for l in labels]
+            title = issue_data.get("title", "")
+            body = issue_data.get("body", "") or ""
+
+            # Generate AI summary
+            ai_summary = summarize_issue(title, body)
+
+            Issue.objects.update_or_create(
+                repository=repo,
+                github_issue_number=issue_data["number"],
+                defaults={
+                    "title": title,
+                    "body": body[:5000],  # cap body storage
+                    "issue_url": issue_data["html_url"],
+                    "state": issue_data.get("state", "open"),
+                    "labels": labels,
+                    "created_at": created_at,
+                    "is_good_first_issue": is_gfi,
+                    "ai_summary": ai_summary,
+                }
+            )
 
     def _fetch_contributors_count(self, repo):
         url = f"{self.BASE_URL}/repos/{repo.full_name}/contributors"

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RepoRadar - Repository Issues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0e1a;
+      --surface: #111827;
+      --surface2: #1a2235;
+      --border: #1f2d45;
+      --accent: #6366f1;
+      --accent2: #8b5cf6;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(99, 102, 241, 0.16), transparent 35%),
+        linear-gradient(180deg, #0a0e1a 0%, #09111f 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      color: #cbd5e1;
+      text-decoration: none;
+      margin-bottom: 1.5rem;
+      font-size: .9rem;
+    }
+    .back-link:hover { color: white; }
+
+    .hero {
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .repo-kicker {
+      color: #93c5fd;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: .5rem;
+    }
+
+    .repo-name {
+      font-size: clamp(1.7rem, 4vw, 2.6rem);
+      line-height: 1.08;
+      margin-bottom: .45rem;
+    }
+
+    .repo-owner {
+      color: var(--muted);
+      font-size: .95rem;
+    }
+
+    .score-badge {
+      flex-shrink: 0;
+      border-radius: 14px;
+      padding: .7rem 1rem;
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      background: rgba(99, 102, 241, 0.12);
+      text-align: right;
+    }
+
+    .score-badge strong {
+      display: block;
+      font-size: 1.35rem;
+    }
+
+    .score-badge span {
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    .repo-description {
+      color: #cbd5e1;
+      line-height: 1.7;
+      margin-bottom: 1.25rem;
+    }
+
+    .meta-row {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .pill {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(148, 163, 184, 0.08);
+      padding: .45rem .85rem;
+      color: #cbd5e1;
+      font-size: .82rem;
+    }
+
+    .topics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .55rem;
+    }
+
+    .topic {
+      font-size: .76rem;
+      color: #c4b5fd;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.24);
+      border-radius: 999px;
+      padding: .3rem .7rem;
+    }
+
+    .section {
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 1.5rem;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .section-head h2 {
+      font-size: 1.15rem;
+    }
+
+    .section-head p {
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    .issues-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .issue-card {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(26, 34, 53, 0.92), rgba(13, 18, 31, 0.96));
+      border-radius: 18px;
+      padding: 1rem;
+    }
+
+    .issue-title {
+      color: white;
+      text-decoration: none;
+      display: inline-block;
+      line-height: 1.45;
+      font-size: 1rem;
+      margin-bottom: .65rem;
+    }
+    .issue-title:hover { color: #a5b4fc; }
+
+    .issue-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin-bottom: .7rem;
+    }
+
+    .label-chip {
+      padding: .18rem .5rem;
+      border-radius: 999px;
+      font-size: .68rem;
+      font-weight: 600;
+      border: 1px solid rgba(139, 92, 246, 0.24);
+      background: rgba(139, 92, 246, 0.12);
+      color: #c4b5fd;
+    }
+    .label-chip.bug { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+    .label-chip.gfi { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.25); color: #86efac; }
+
+    .issue-age {
+      color: var(--muted);
+      font-size: .76rem;
+    }
+
+    .summary {
+      border-left: 2px solid rgba(99, 102, 241, 0.6);
+      padding-left: .75rem;
+      color: #cbd5e1;
+      line-height: 1.65;
+      font-size: .88rem;
+    }
+
+    .empty, .loader {
+      text-align: center;
+      color: var(--muted);
+      padding: 3rem 1rem;
+    }
+
+    .loader-spinner {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      margin: 0 auto 1rem;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 700px) {
+      .page { padding: 1rem; }
+      .hero-top, .section-head { flex-direction: column; align-items: flex-start; }
+      .score-badge { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <a class="back-link" href="/">← Back to search</a>
+
+    <section class="hero" id="repo-hero">
+      <div class="loader">
+        <div class="loader-spinner"></div>
+        <p>Loading repository details...</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Recent Issues</h2>
+          <p>Open issues from the last 5 days for this repository.</p>
+        </div>
+      </div>
+      <div id="issues-root">
+        <div class="loader">
+          <div class="loader-spinner"></div>
+          <p>Loading issues...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const repoId = {{ repo_id }};
+    const repoApi = `/api/repos/${repoId}/`;
+    const issuesApi = `/api/repos/${repoId}/recent_issues/`;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function fmt(n) {
+      return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n ?? 0);
+    }
+
+    function issueAge(daysAgo) {
+      if (daysAgo === 0) return 'opened today';
+      if (daysAgo === 1) return 'opened 1 day ago';
+      return `opened ${daysAgo} days ago`;
+    }
+
+    function renderRepo(repo) {
+      const topics = (repo.topics || []).slice(0, 8);
+      return `
+        <div class="hero-top">
+          <div>
+            <div class="repo-kicker">Repository Overview</div>
+            <h1 class="repo-name">${escapeHtml(repo.full_name)}</h1>
+            <div class="repo-owner">${escapeHtml(repo.owner || '')}</div>
+          </div>
+          <div class="score-badge">
+            <strong>${Number(repo.final_score || 0).toFixed(1)}</strong>
+            <span>AI Score</span>
+          </div>
+        </div>
+        <p class="repo-description">${escapeHtml(repo.description || 'No description available for this repository.')}</p>
+        <div class="meta-row">
+          ${repo.language ? `<span class="pill">Language: ${escapeHtml(repo.language)}</span>` : ''}
+          <span class="pill">Stars: ${fmt(repo.stars)}</span>
+          <span class="pill">Forks: ${fmt(repo.forks)}</span>
+          <span class="pill">Contributors: ${fmt(repo.contributors_count)}</span>
+          <span class="pill">Open issues: ${fmt(repo.open_issues)}</span>
+          <a class="pill" href="${escapeHtml(repo.repo_url)}" target="_blank" rel="noopener noreferrer">Open on GitHub</a>
+        </div>
+        ${topics.length ? `<div class="topics">${topics.map(topic => `<span class="topic">${escapeHtml(topic)}</span>`).join('')}</div>` : ''}
+      `;
+    }
+
+    function renderIssues(payload) {
+      const issues = payload.issues || [];
+      if (!issues.length) {
+        return `<div class="empty">No open issues were created in the last 5 days for this repository.</div>`;
+      }
+
+      return `<div class="issues-list">${issues.map(issue => {
+        const labels = (issue.labels || []).map(label => {
+          const lowered = label.toLowerCase();
+          const cls = lowered.includes('bug') ? 'bug' : lowered.includes('good first') ? 'gfi' : '';
+          return `<span class="label-chip ${cls}">${escapeHtml(label)}</span>`;
+        }).join('');
+
+        return `
+          <article class="issue-card">
+            <a class="issue-title" href="${escapeHtml(issue.issue_url)}" target="_blank" rel="noopener noreferrer">
+              #${issue.github_issue_number} ${escapeHtml(issue.title)}
+            </a>
+            <div class="issue-meta">
+              <span class="issue-age">${issueAge(issue.days_ago)}</span>
+              ${labels}
+            </div>
+            ${issue.ai_summary ? `<div class="summary">${escapeHtml(issue.ai_summary)}</div>` : ''}
+          </article>
+        `;
+      }).join('')}</div>`;
+    }
+
+    async function loadPage() {
+      const hero = document.getElementById('repo-hero');
+      const issuesRoot = document.getElementById('issues-root');
+
+      try {
+        const [repoRes, issuesRes] = await Promise.all([fetch(repoApi), fetch(issuesApi)]);
+        if (!repoRes.ok || !issuesRes.ok) {
+          throw new Error(`HTTP ${repoRes.status}/${issuesRes.status}`);
+        }
+
+        const [repo, issues] = await Promise.all([repoRes.json(), issuesRes.json()]);
+        hero.innerHTML = renderRepo(repo);
+        issuesRoot.innerHTML = renderIssues(issues);
+      } catch (error) {
+        hero.innerHTML = `<div class="empty">Could not load repository details.</div>`;
+        issuesRoot.innerHTML = `<div class="empty">Could not load issue data for this repository.</div>`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPage);
+  </script>
+</body>
+</html>

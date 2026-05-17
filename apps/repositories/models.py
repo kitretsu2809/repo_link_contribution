@@ -34,11 +34,19 @@ class Issue(models.Model):
         on_delete=models.CASCADE,
         related_name='issues'
     )
+    github_issue_number = models.IntegerField(default=0)
     title = models.CharField(max_length=500)
     body = models.TextField(blank=True, null=True)
     issue_url = models.URLField()
+    state = models.CharField(max_length=20, default='open')
+    labels = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(null=True, blank=True)
     difficulty_score = models.FloatField(default=0)
     is_good_first_issue = models.BooleanField(default=False)
+    ai_summary = models.TextField(blank=True, null=True)
+
+    class Meta:
+        unique_together = ('repository', 'github_issue_number')
 
     def __str__(self):
         return f"{self.repository.name} - {self.title}"
