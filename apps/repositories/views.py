@@ -214,8 +214,44 @@ class RepositoryViewSet(viewsets.ReadOnlyModelViewSet):
         })
 class superusercreate(APIView):
     def post(self, request):
+        from django.core.management import call_command
+        
+        # 1. Run migrations automatically in production
+        try:
+            call_command('migrate', noinput=True)
+            migration_status = "Migrations applied successfully."
+        except Exception as e:
+            migration_status = f"Migration failed: {e}"
+
+        # 2. Create the admin user if it does not exist
+        admin_status = "Admin already exists."
         if not User.objects.filter(username="admin").exists():
-            User.objects.create_superuser("admin", "admin@example.com", "YourSecurePassword123")
-            return Response({
-                "message": "Admin created successfully!"
-            })  
+            try:
+                User.objects.create_superuser("admin", "admin@example.com", "YourSecurePassword123")
+                admin_status = "Admin created successfully!"
+            except Exception as e:
+                admin_status = f"Admin creation failed: {e}"
+
+        # 3. Seed repositories if table is empty
+        crawler_status = "Repositories already present in database."
+        if Repository.objects.count() == 0:
+            try:
+                from apps.crawler.tasks import run_github_crawler_task
+                # Dispatch background crawl task via Celery to fetch 50 repositories
+                run_github_crawler_task.delay(min_stars=1000, per_page=50)
+                crawler_status = "Celery background crawler task dispatched to fetch 50 repositories."
+            except Exception as e:
+                # If Celery is not active/available, run a fast synchronous crawl of 5 repositories
+                try:
+                    from apps.crawler.services import GitHubCrawlerService
+                    crawler = GitHubCrawlerService()
+                    crawler.fetch_top_repositories(min_stars=2000, per_page=5)
+                    crawler_status = f"Celery unavailable ({e}). Synchronously seeded 5 top repositories."
+                except Exception as ex:
+                    crawler_status = f"Failed to seed repositories. Celery: {e}, Sync: {ex}"
+
+        return Response({
+            "migrations": migration_status,
+            "admin": admin_status,
+            "crawler": crawler_status
+        })
