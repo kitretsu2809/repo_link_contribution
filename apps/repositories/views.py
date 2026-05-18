@@ -1,4 +1,4 @@
-import numpy as np
+import math
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -16,9 +16,9 @@ import google.generativeai as genai
 
 
 def cosine_similarity(v1, v2):
-    dot_product = np.dot(v1, v2)
-    norm_v1 = np.linalg.norm(v1)
-    norm_v2 = np.linalg.norm(v2)
+    dot_product = sum(a * b for a, b in zip(v1, v2))
+    norm_v1 = math.sqrt(sum(a * a for a in v1))
+    norm_v2 = math.sqrt(sum(b * b for b in v2))
     if norm_v1 == 0 or norm_v2 == 0:
         return 0.0
     return dot_product / (norm_v1 * norm_v2)
@@ -154,7 +154,7 @@ class RepositoryViewSet(viewsets.ReadOnlyModelViewSet):
                 scored_repos = []
                 for repo in repos:
                     if repo.embedding:
-                        sim = cosine_similarity(query_embedding, np.array(repo.embedding))
+                        sim = cosine_similarity(query_embedding, repo.embedding)
                         scored_repos.append((sim, repo))
                     else:
                         scored_repos.append((-1.0, repo))
