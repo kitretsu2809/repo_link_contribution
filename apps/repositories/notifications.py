@@ -26,6 +26,8 @@ def send_issue_notifications(issue):
         f"URL: {issue.issue_url}\n\n"
         "AI Summary:\n"
         f"{issue.ai_summary or 'No AI summary available.'}\n\n"
+        "🎓 Learn with Bugs (AI Learning Guide):\n"
+        f"{issue.ai_learning_guide or 'No learning guide generated.'}\n\n"
         "Full Issue:\n"
         f"{issue.body or 'No issue body available.'}\n"
     )

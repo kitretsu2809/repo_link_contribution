@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import JsonResponse
+from rest_framework_simplejwt.views import TokenRefreshView
 
 @ensure_csrf_cookie
 def frontend(request):
@@ -37,5 +38,6 @@ urlpatterns = [
     path('healthz/', healthcheck, name='healthcheck'),
     path('admin/', admin.site.urls),
     path('api/', include('apps.repositories.urls')),
+    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('api/crawler/', include('apps.crawler.urls')),
 ]

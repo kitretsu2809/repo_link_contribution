@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+import uuid
 
 class Repository(models.Model):
     github_id = models.BigIntegerField(unique=True)
@@ -45,6 +46,7 @@ class Issue(models.Model):
     difficulty_score = models.FloatField(default=0)
     is_good_first_issue = models.BooleanField(default=False)
     ai_summary = models.TextField(blank=True, null=True)
+    ai_learning_guide = models.TextField(blank=True, null=True)
 
     class Meta:
         unique_together = ('repository', 'github_issue_number')
@@ -91,3 +93,31 @@ class IssueNotification(models.Model):
 
     def __str__(self):
         return f"Notification sent to {self.user} for issue {self.issue_id}"
+
+
+class BeginnerChatSession(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chat_sessions')
+    issue = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='chat_sessions')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Chat for {self.issue.title} by {self.user}"
+
+
+class ChatMessage(models.Model):
+    ROLE_CHOICES = (
+        ('user', 'User'),
+        ('assistant', 'Assistant'),
+        ('system', 'System'),
+    )
+    session = models.ForeignKey(BeginnerChatSession, on_delete=models.CASCADE, related_name='messages')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.role} message in {self.session.id}"

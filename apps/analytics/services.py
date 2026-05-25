@@ -85,7 +85,7 @@ class AnalyticsService:
                 text_to_embed = f"{repo.name}. {repo.description}. Topics: {topics_str}. README: {readme_snippet}"
                 
                 result = genai.embed_content(
-                    model="models/text-embedding-004",
+                    model="models/gemini-embedding-2",
                     content=text_to_embed,
                     task_type="retrieval_document"
                 )

@@ -376,6 +376,123 @@
       .auth-user { flex-direction: column; align-items: stretch; }
       .profile-email { max-width: none; }
     }
+
+    .chat-btn {
+      padding: .4rem .7rem;
+      border-radius: 6px;
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #a5b4fc;
+      margin-left: auto;
+    }
+    .chat-btn:hover { background: rgba(99, 102, 241, 0.25); }
+    
+    .issue-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: .65rem;
+    }
+
+    /* Chat Drawer Overlay */
+    .chat-drawer-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+      display: none;
+      justify-content: flex-end;
+    }
+    .chat-drawer-overlay.open { display: flex; }
+    .chat-drawer {
+      width: 400px;
+      max-width: 100%;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+    .chat-header {
+      padding: 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface2);
+    }
+    .close-btn { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; }
+    .close-btn:hover { color: white; }
+    .chat-messages {
+      flex: 1;
+      padding: 1.25rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .chat-msg {
+      max-width: 85%;
+      padding: .85rem 1rem;
+      border-radius: 12px;
+      font-size: .9rem;
+      line-height: 1.5;
+    }
+    .chat-msg.assistant {
+      align-self: flex-start;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-bottom-left-radius: 2px;
+    }
+    .chat-msg.user {
+      align-self: flex-end;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-bottom-right-radius: 2px;
+    }
+    .chat-input-area {
+      padding: 1.25rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface2);
+      display: flex;
+      gap: .5rem;
+    }
+    .chat-input {
+      flex: 1;
+      padding: .75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.2);
+      color: white;
+      font-family: inherit;
+    }
+    .chat-send-btn {
+      padding: .75rem 1.25rem;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .loading-dots:after {
+      content: '.';
+      animation: dots 1.5s steps(5, end) infinite;
+    }
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
   </style>
 </head>
 <body>
@@ -425,6 +542,22 @@
       </div>
     </section>
   </main>
+
+  <div class="chat-drawer-overlay" id="chat-overlay" onclick="closeChat(event)">
+    <div class="chat-drawer" onclick="event.stopPropagation()">
+      <div class="chat-header">
+        <h3>Beginner Guide Chat</h3>
+        <button class="close-btn" onclick="closeChat()">×</button>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <!-- Messages will go here -->
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" class="chat-input" placeholder="Type your message..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
+        <button id="chat-send-btn" class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const repoId = {{ repo_id }};
@@ -620,9 +753,12 @@
 
         return `
           <article class="issue-card">
-            <a class="issue-title" href="${escapeHtml(issue.issue_url)}" target="_blank" rel="noopener noreferrer">
-              #${issue.github_issue_number} ${escapeHtml(issue.title)}
-            </a>
+            <div class="issue-card-header">
+              <a class="issue-title" href="${escapeHtml(issue.issue_url)}" target="_blank" rel="noopener noreferrer">
+                #${issue.github_issue_number} ${escapeHtml(issue.title)}
+              </a>
+              <button class="chat-btn" onclick="startChat(${issue.id})">Guide for Beginner 💬</button>
+            </div>
             <div class="issue-meta">
               <span class="issue-age">${issueAge(issue.days_ago)}</span>
               ${labels}
@@ -660,6 +796,80 @@
     async function loadPage() {
       await refreshAuthStatus();
       await Promise.all([loadRepoOnly(), loadIssuesOnly()]);
+    }
+
+    let currentSessionId = null;
+
+    function openChat() {
+      document.getElementById('chat-overlay').classList.add('open');
+      document.getElementById('chat-messages').innerHTML = '';
+      currentSessionId = null;
+    }
+
+    function closeChat(event) {
+      if (event && event.target !== document.getElementById('chat-overlay')) return;
+      document.getElementById('chat-overlay').classList.remove('open');
+    }
+
+    function appendMessage(role, text) {
+      const msgs = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = `chat-msg ${role}`;
+      div.textContent = text;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function appendLoader() {
+      const msgs = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = `chat-msg assistant loader-msg`;
+      div.innerHTML = `<span class="loading-dots">Thinking</span>`;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function removeLoader() {
+      const loader = document.querySelector('.loader-msg');
+      if (loader) loader.remove();
+    }
+
+    async function startChat(issueId) {
+      if (!currentUser) {
+        alert("Please login first to use the Beginner Guide Chat.");
+        return;
+      }
+      openChat();
+      appendLoader();
+      try {
+        const res = await postJson('/api/chat/start/', { issue_id: issueId });
+        removeLoader();
+        currentSessionId = res.session_id;
+        appendMessage('assistant', res.message);
+      } catch (e) {
+        removeLoader();
+        appendMessage('assistant', 'Error starting chat: ' + e.message);
+      }
+    }
+
+    async function sendChatMessage() {
+      if (!currentSessionId) return;
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      
+      input.value = '';
+      appendMessage('user', text);
+      appendLoader();
+      
+      try {
+        const res = await postJson(`/api/chat/${currentSessionId}/message/`, { message: text });
+        removeLoader();
+        appendMessage('assistant', res.message);
+      } catch (e) {
+        removeLoader();
+        appendMessage('assistant', 'Error sending message: ' + e.message);
+      }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

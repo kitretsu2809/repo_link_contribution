@@ -1,20 +1,20 @@
 import math
-from django.http import HttpResponse
-from django.contrib.auth import authenticate, get_user_model, login, logout
+import os
+from django.contrib.auth import authenticate, get_user_model
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from .models import Repository, RepositoryWatch
-from .serializers import RepositorySerializer
-
-
-User = get_user_model()
-
-import os
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
 import google.generativeai as genai
 
+from .models import Repository, RepositoryWatch, Issue, BeginnerChatSession, ChatMessage
+from .serializers import RepositorySerializer
+
+User = get_user_model()
 
 def cosine_similarity(v1, v2):
     dot_product = sum(a * b for a, b in zip(v1, v2))
@@ -50,20 +50,19 @@ class RegisterView(APIView):
         password = request.data.get('password') or ''
 
         if not email or not password:
-            return Response(
-                {'detail': 'Email and password are required.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({'detail': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(email__iexact=email).exists():
-            return Response(
-                {'detail': 'An account with that email already exists.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({'detail': 'An account with that email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.create_user(username=email, email=email, password=password)
-        login(request, user)
-        return Response({'authenticated': True, 'user': serialize_user(user)}, status=status.HTTP_201_CREATED)
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'authenticated': True,
+            'user': serialize_user(user),
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }, status=status.HTTP_201_CREATED)
 
 
 class LoginView(APIView):
@@ -74,10 +73,7 @@ class LoginView(APIView):
         password = request.data.get('password') or ''
 
         if not email or not password:
-            return Response(
-                {'detail': 'Email and password are required.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({'detail': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.filter(email__iexact=email).first()
         if not user:
@@ -87,15 +83,26 @@ class LoginView(APIView):
         if not authenticated_user:
             return Response({'detail': 'Invalid email or password.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        login(request, authenticated_user)
-        return Response({'authenticated': True, 'user': serialize_user(authenticated_user)})
+        refresh = RefreshToken.for_user(authenticated_user)
+        return Response({
+            'authenticated': True,
+            'user': serialize_user(authenticated_user),
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        })
 
 
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        logout(request)
+        try:
+            refresh_token = request.data.get('refresh')
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+        except TokenError:
+            pass
         return Response({'authenticated': False, 'user': None})
 
 
@@ -150,7 +157,7 @@ class RepositoryViewSet(viewsets.ReadOnlyModelViewSet):
             genai.configure(api_key=api_key)
             try:
                 result = genai.embed_content(
-                    model="models/text-embedding-004",
+                    model="models/gemini-embedding-2",
                     content=query,
                     task_type="retrieval_query"
                 )
@@ -212,3 +219,97 @@ class RepositoryViewSet(viewsets.ReadOnlyModelViewSet):
             'deleted': bool(deleted),
             'repository_id': repo.id,
         })
+
+
+class ChatStartView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        issue_id = request.data.get('issue_id')
+        try:
+            issue = Issue.objects.select_related('repository').get(id=issue_id)
+        except Issue.DoesNotExist:
+            return Response({'error': 'Issue not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        session = BeginnerChatSession.objects.create(
+            user=request.user,
+            issue=issue
+        )
+
+        repo = issue.repository
+        
+        system_prompt = (
+            "You are a helpful programming mentor. A beginner developer wants to contribute to an open-source project.\n"
+            f"Repository Name: {repo.full_name}\n"
+            f"Repository Description: {repo.description}\n"
+            f"Language: {repo.language}\n"
+            f"Issue Title: {issue.title}\n"
+            f"Issue Body: {issue.body[:2000]}\n\n"
+            "Provide a brief, encouraging summary of the repository and the task. Ask them if they are ready to get started. Keep it concise."
+        )
+
+        ChatMessage.objects.create(session=session, role='system', content=system_prompt)
+
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            return Response({'error': 'GROQ_API_KEY not configured'}, status=500)
+
+        from groq import Groq
+        client = Groq(api_key=api_key)
+
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=[{"role": "system", "content": system_prompt}],
+                model="llama-3.3-70b-versatile",
+            )
+            assistant_response = chat_completion.choices[0].message.content.strip()
+            ChatMessage.objects.create(session=session, role='assistant', content=assistant_response)
+        except Exception as e:
+            print(f"Groq API Error: {e}")
+            assistant_response = "I'm sorry, I'm having trouble connecting to my brain right now. Are you ready to get started?"
+            ChatMessage.objects.create(session=session, role='assistant', content=assistant_response)
+
+        return Response({
+            'session_id': session.id,
+            'message': assistant_response
+        })
+
+
+class ChatMessageView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, session_id):
+        user_message = request.data.get('message', '').strip()
+        if not user_message:
+            return Response({'error': 'Message cannot be empty'}, status=400)
+
+        try:
+            session = BeginnerChatSession.objects.get(id=session_id, user=request.user)
+        except BeginnerChatSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
+
+        ChatMessage.objects.create(session=session, role='user', content=user_message)
+
+        history = session.messages.all().order_by('created_at')
+        messages = [{"role": msg.role, "content": msg.content} for msg in history]
+
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            return Response({'error': 'GROQ_API_KEY not configured'}, status=500)
+
+        from groq import Groq
+        client = Groq(api_key=api_key)
+
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=messages,
+                model="llama-3.3-70b-versatile",
+            )
+            assistant_response = chat_completion.choices[0].message.content.strip()
+            ChatMessage.objects.create(session=session, role='assistant', content=assistant_response)
+        except Exception as e:
+            print(f"Groq API Error: {e}")
+            assistant_response = "Sorry, I encountered an error while thinking."
+            ChatMessage.objects.create(session=session, role='assistant', content=assistant_response)
+
+        return Response({'message': assistant_response})

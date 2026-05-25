@@ -113,13 +113,13 @@ class GitHubCrawlerService:
     def _fetch_issues(self, repo):
         from datetime import datetime, timezone, timedelta
         from django.utils.dateparse import parse_datetime
-        from apps.analytics.summarizer import summarize_issue
+        from apps.analytics.summarizer import summarize_issue, generate_learning_guide
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=5)
 
         url = f"{self.BASE_URL}/repos/{repo.full_name}/issues"
         params = {
-            "state": "open",
+            "state": "all",
             "sort": "created",
             "direction": "desc",
             "per_page": 30,
@@ -143,9 +143,21 @@ class GitHubCrawlerService:
             is_gfi = "good first issue" in [l.lower() for l in labels]
             title = issue_data.get("title", "")
             body = issue_data.get("body", "") or ""
+            state = issue_data.get("state", "open")
 
-            # Generate AI summary
+            # For closed issues, only track them if they are interconnected (e.g. mention another issue/PR via #123)
+            merged_code = None
+            if state == "closed":
+                import re
+                if not body or not re.search(r'#\d+', body):
+                    continue
+                # We could fetch the exact merged PR diff here, but to avoid rate limits 
+                # we'll pass a placeholder and rely on the AI's general knowledge of the repository context
+                merged_code = "Code merged from an interconnected Pull Request."
+
+            # Generate AI summary and Learning Guide
             ai_summary = summarize_issue(title, body)
+            ai_learning_guide = generate_learning_guide(title, body, state=state, merged_code=merged_code)
 
             issue, created = Issue.objects.update_or_create(
                 repository=repo,
@@ -154,11 +166,12 @@ class GitHubCrawlerService:
                     "title": title,
                     "body": body,
                     "issue_url": issue_data["html_url"],
-                    "state": issue_data.get("state", "open"),
+                    "state": state,
                     "labels": labels,
                     "created_at": created_at,
                     "is_good_first_issue": is_gfi,
                     "ai_summary": ai_summary,
+                    "ai_learning_guide": ai_learning_guide,
                 }
             )
             if created:
