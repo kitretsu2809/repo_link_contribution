@@ -14,8 +14,9 @@ def trigger_crawler(request):
         return JsonResponse({'error': 'Server configuration missing: CRAWLER_SECRET_TOKEN is not set.'}, status=500)
 
     if provided_token == expected_token:
-        # Dispatch the background task
+        # Dispatch the background task via Celery
         run_all_categories_task.delay(per_category=50)
-        return JsonResponse({'status': 'Crawler task dispatched successfully! Check Celery worker logs for progress.'})
+        return JsonResponse({'status': 'Crawler task dispatched successfully via Celery!'})
     
     return JsonResponse({'error': 'Unauthorized: Invalid token.'}, status=403)
+
