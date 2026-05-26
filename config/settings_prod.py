@@ -20,6 +20,8 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 APP_BASE_URL = os.getenv('APP_BASE_URL', '').strip()
 if APP_BASE_URL:
     parsed = urlparse(APP_BASE_URL)
